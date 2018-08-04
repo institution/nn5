@@ -1,0 +1,13 @@
+max_textures 3
+max_spritesets 3
+max_sprites 500
+
+texture 1
+	path "res/go.png"
+spriteset 1
+	rc "res/go.rc"
+
+texture 0
+	path "res/Inconsolata-Medium-18.png"
+spriteset 0
+	rc "res/Inconsolata-Medium-18.rc"

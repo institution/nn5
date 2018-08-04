@@ -1,0 +1,245 @@
+#include <fstream>
+#include "rc.hpp"
+
+namespace front {
+
+
+	
+	void RC::accept_string()
+	{
+		if (not is_quote_str(r.peek())) { 
+			set_error("expected double quote; c='{}'", r.peek());
+			r.get(); // ignore this char
+			return;
+		}
+		
+		r.get();
+		while (not eof())
+		{
+			// print("char %|| %||\n", char(r.peek()), is_quote_str(r.peek()));
+			if (is_escape_char(r.peek()))
+			{
+				r.get();
+				switch (r.peek())
+				{
+					case '"': w.put('"'); break;
+					case 'n': w.put('\n'); break;
+					case 't': w.put('\t'); break;
+					case 'r': w.put('\r'); break;
+					case '\\': w.put('\\'); break;
+					default:
+						set_error("invalid escaped character; c='{}'", r.peek());
+						// ignore this char
+						break;
+				}
+				r.get();
+			}
+			else if (is_quote_str(r.peek()))
+			{
+				r.get();
+				break;
+			}
+			else if (is_body_str(r.peek()))
+			{
+				w.put(r.get());
+			}			
+			else {
+				set_error("unexpected char inside string; c='{}'", r.peek());
+				// ignore this char
+				r.get();
+				break;
+			}
+		}
+		skip_whites();
+	}
+
+
+	
+		
+	void RC::accept_symbol()
+	{
+		if (not is_open_sym(r.peek())) { 			
+			set_error("expected open symbol character; c='{}'", r.peek());
+			r.get(); // ignore
+			return;
+		}
+		
+		w.put(r.get());
+		while (not eof())
+		{		
+			if (is_body_sym(r.peek()))
+			{
+				w.put(r.get());
+			}
+			else {			
+				break;
+			}
+		}
+
+		skip_whites();
+	}
+
+	
+	void RC::skip_whites()
+	{
+		while (not eof()) {
+			if (is_white(r.peek())) {
+				r.get();
+			}
+			else if (is_endline(r.peek())) {
+				r.line_no() += 1;
+				r.line_beg() = r.tell();
+				r.get();
+			}
+			else if (is_open_comment(r.peek())) {
+				accept_comment();
+			}
+			else {
+				break;
+			}
+		}
+	}
+	
+	
+	void RC::accept_comment()
+	{
+		if (not is_open_comment(r.peek())) { 			
+			set_error("expected open comment; c='{}'", r.peek());
+			r.get(); // ignore
+			return;
+		}
+		r.get();
+		
+		while (not eof()) 
+		{
+			if (is_endline(r.peek())) {
+				r.line_no() += 1;
+				r.line_beg() = r.tell();
+				break;
+			}
+			else {				
+				r.get();
+			}
+		}
+		r.get();	
+	}
+	
+	
+	void RC::rc(Path const& path)
+	{
+		r.rc(path); 
+		
+		new (&w) Writer();
+		//new (&r) Reader();
+
+		error.clear();
+		tmp = "";
+				
+		skip_whites();
+		
+		r.set_mark();
+		w.str("");
+	}
+
+	
+	
+	int RC::to_int(std::string const& s)
+	{
+		if (s == "-") {
+			return 0;
+		}
+		
+		try {			
+			return stoi(s);
+		}
+		catch (std::invalid_argument const&) {
+			set_error("expected number; s=\"{}\"", s);			
+		}
+		catch (std::out_of_range const&) {
+			set_error("number too large");
+		}
+		return 0;
+	}
+		
+
+	
+
+	
+	uint32_t RC::read_uint32()
+	{
+		r.set_mark();
+		w.str("");
+		accept_symbol();
+		return to_int(w.str());		
+	}
+
+	
+	int32_t RC::read_int32()
+	{
+		r.set_mark();
+		w.str("");
+		accept_symbol();
+		return to_int(w.str());		
+	}
+
+	
+	uint16_t RC::read_uint16()
+	{
+		r.set_mark();
+		w.str("");
+		accept_symbol();
+		return to_int(w.str());		
+	}
+	
+	
+	int16_t RC::read_int16()
+	{
+		r.set_mark();
+		w.str("");
+		accept_symbol();
+		return to_int(w.str());		
+	}
+	
+	
+	uint8_t RC::read_uint8()
+	{
+		r.set_mark();
+		w.str("");
+		accept_symbol();
+		return to_int(w.str());		
+	}
+	
+	
+	int8_t RC::read_int8()
+	{
+		r.set_mark();
+		w.str("");
+		accept_symbol();
+		return to_int(w.str());		
+	}
+	
+
+	
+	std::string const& RC::read_string()
+	{
+		r.set_mark();
+		w.str("");
+		accept_string();
+		tmp = w.str();
+		return tmp;
+	}
+	
+	
+	std::string const& RC::read_symbol()
+	{
+		r.set_mark();
+		w.str("");
+		accept_symbol();
+		tmp = w.str();
+		return tmp;
+	}
+	
+
+
+
+}

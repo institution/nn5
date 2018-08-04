@@ -1,0 +1,36 @@
+input board[8,8,2]  # [,,0] - current player, [,,1] - next player
+
+nodes -- each node stores one or multiple values and have up to 2 input addresses
+
+nodes:
+	input(;) -- stores input value's
+	copy(x) -- takes x
+	array(;N)
+	*(x,y)
+	+(x,y)
+	sum(i,j;delta) -- sum numbers in mem.slice(&i,&j) skipping delta 
+	
+	
+	relu(x)
+
+
+neuron:
+
+	sigmoid(sum(x[i] * p[i] for i in [N]))
+	
+	
+vmul(i,j, k,l)		
+	mem[i+x]*mem[k+x] for x in [0..j-i]
+		
+	
+	
+	
+	
+	
+	
+recurrent modular network nodes connected by links
+each node controls its input  links
+links stores derivates
+nodes values
+
+

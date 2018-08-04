@@ -1,0 +1,6 @@
+max_sprites 1
+
+sprite 0
+name "stone"
+box 0 0 48 48
+

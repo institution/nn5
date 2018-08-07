@@ -1,4 +1,4 @@
-#include "go.hpp"
+#include "sfg-parser.hpp"
 
 namespace Go {
 

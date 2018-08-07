@@ -5,6 +5,7 @@
 #include "front/front.hpp"
 #include "front/render.hpp"
 #include "go/go.hpp"
+#include "go/sfg-parser.hpp"
 
 
 /**
@@ -67,7 +68,7 @@ namespace gui {
 	extern Window window;
 	extern Panel panel;
 
-	extern SFGParser sfg;
+	extern Go::SFGParser sfg;
 
 
 

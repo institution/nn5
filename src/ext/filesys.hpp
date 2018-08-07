@@ -1,10 +1,17 @@
 #pragma once
 
 #include <string>
+#include <unistd.h>
+#include <linux/limits.h>
+#include "fail.hpp"
 
-namespace ext{
+namespace ext {
 
+	/// Set working dir to 'executable_path + 'rel
+	void set_relative_working_dir(char const* rel);
+	
 	using Path = std::string;
+	
 	
 
 	inline Path parent_path(Path const& p) {

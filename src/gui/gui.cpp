@@ -10,7 +10,7 @@ namespace gui {
 	Button resign_button;
 	Button next_button;
 	Go::Board game;
-	SFGParser sfg;
+	Go::SFGParser sfg;
 
 
 
@@ -249,103 +249,7 @@ namespace gui {
 		return r;
 	}
 
-	void sfg_load(char const* path) {
-		// TODO
-		sfg.open(path);
 
-		FixedString<3> cmd;
-		FixedString<32> arg;
-
-		while(1) {
-			sfg.read_cmd(cmd.range());
-			sfg.read_arg(arg.range());
-
-			if (cmd == "SZ") {
-				if (arg != "9") {
-					ext::fail("ERROR: sfg have diffrent board size\n");
-				}
-			}
-			else if (cmd == "KM") {
-				if (arg != "5.5") {
-					ext::fail("ERROR: sfg have diffrent komi: {}\n", arg);
-				}
-			}
-			else if (cmd == "HA") {
-				if (arg != "0") {
-					ext::fail("ERROR: sfg have diffrent handicap\n");
-				}
-			}
-			else if (cmd != "RE") {
-				// TODO: parse and set result
-				//RE[W+10.5]
-				print("MESSAGE: sfg result: {}\n", arg);
-				break;
-			}
-		}
-	}
-
-
-	Go::Action sfg_arg_to_action(char const* arg)
-	{
-		if (strlen(arg) == 2) {
-			return Go::action_move(Go::Vec(arg[0] - 'a', arg[1] - 'a'));
-		}
-		else if (strlen(arg) == 0) {
-			return Go::ActionPass;
-		}
-		else {
-			ext::fail("ERROR: invalid sfg action\n");
-		}
-	}
-
-
-	void sfg_next()
-	{
-		FixedString<3> cmd;
-		FixedString<512> arg;
-
-		Go::Action act{Go::ActionNone};
-		Go::Ply ply{Go::PlyNone};
-
-		while (1)
-		{
-			if (sfg.eof()) {
-				print("MESSAGE: end of sfg file\n");
-				return;
-			}
-
-			cmd.clear();
-			arg.clear();
-			sfg.read_cmd(cmd.range());
-			sfg.read_arg(arg.range());
-
-			if (cmd == "C") {
-				// ignore comments for now
-			}
-			else if (cmd == "B") {
-				ply = Go::PlyBlack;
-				act = sfg_arg_to_action(arg.c_str());
-				break;
-			}
-			else if (cmd == "W") {
-				ply = Go::PlyWhite;
-				act = sfg_arg_to_action(arg.c_str());
-				break;
-			}
-			else if (cmd == "") {
-				// no more actions
-				//
-				return;
-			}
-		}
-
-		Err err = move(game, game, act, ply);
-		if (err) {
-			// display error
-			print("ERROR: {}\n", err);
-		}
-
-	}
 
 	// Panel --------------------------------------------------
 
@@ -356,7 +260,7 @@ namespace gui {
 			auto dim = v2s(12*Ex, 1.4*Em);
 			auto pos = calc_align(this->box, dim, {0.5, 0.5});
 			next_button.init({pos, dim}, ">>", []() {
-				sfg_next();
+				sfg_next(sfg, game, game);
 			});
 		}
 
@@ -461,7 +365,7 @@ namespace gui {
 		panel.init({board_dim[0], 0, 24 * Ex, board_dim[1]});
 
 		if (strcmp(path_sfg, "") != 0) {
-			sfg_load(path_sfg);
+			sfg_load(sfg, path_sfg);
 		}
 
 	}

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ext/ext.hpp"
-#include "sfg-parser.hpp"
 
 /**
 go state (board)

@@ -4,6 +4,17 @@
 #include <cassert>
 
 namespace ext {
+
+	struct Random
+	{
+		std::default_random_engine e;
+		float uniform_f(float a, float b)
+		{
+			std::uniform_real_distribution<float> d{a, b};
+			return d(e);
+		}
+	};
+	
 	extern std::default_random_engine e;
 
 	inline void init() {

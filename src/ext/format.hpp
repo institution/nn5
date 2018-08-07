@@ -4,9 +4,10 @@
 #include <iostream>
 #include <iomanip> // setprecision
 #include <sstream> // stringstream
-#include "fmt/format.h"
 #include <type_traits>
-#include <cstdio>
+#include <cstring>
+#include <cassert>
+
 
 /*
 no iostream dependency
@@ -47,19 +48,81 @@ namespace ext {
 	}
 
 
+	// object is T-readable if ext::get(o)->T is defined
+	// object is T-writeable if ext::put(o, T) is defined
+	
 
 	template <class T>
 	struct Rng
 	{
 		T * a;
 		T * b;
+		Rng(): a(nullptr), b(nullptr) {}
 		Rng(T * a, T * b): a(a), b(b) {}
+		
+		T const& operator[](size_t i) const { 
+			T * p = a + i; 
+			assert(p < b);
+			return *p;
+		}
+		
+		T & operator[](size_t i) { 
+			T * p = a + i; 
+			assert(p < b);
+			return *p;
+		}
+		
+		size_t size() const { return b-a; }
 	};
 
 	struct Char {
 		char c;
 		Char() = default;
 		Char(char c): c(c) {}
+	};
+
+	struct DString
+	{
+		char * c{nullptr};
+		uint16_t N{0};
+		
+		
+		DString() { clear(); }
+		DString(char const* s) { 			
+			reserve(std::strlen(s));
+			set(s); 
+		}		
+		DString(uint16_t N) { reserve(N); }
+		~DString() { delete [] c; }
+		DString(DString const&) = delete;
+		
+		void reserve(uint16_t N_) {
+			N = N_;
+			delete [] c;
+			c = new char[N];
+		}
+
+		bool empty() const { return c[0] == '\0'; }
+		void clear() { c[0] = '\0'; }
+		char const* c_str() const { return c; }
+		Rng<char> range() { return Rng<char>(c, c+N); }
+		
+		void set(char const* s) {
+			if (std::strlen(s) + 1 < N) {
+				std::strcpy(c, s);
+			}
+			else {
+				fail_no_print("ERROR: DString set\n");
+			}
+		}
+		
+		bool operator==(char const* s) {
+			return strcmp(c, s) == 0;
+		}		
+		
+		bool operator!=(char const* s) {
+			return strcmp(c, s) != 0;
+		}
 	};
 
 	template <int16_t N>
@@ -78,8 +141,8 @@ namespace ext {
 		char const* c_str() const { return c; }
 		Rng<char> range() { return Rng<char>(c, c+N); }
 		void set(char const* s) {
-			if (strlen(s) + 1 < N) {
-				strcpy(c, s);
+			if (std::strlen(s) + 1 < N) {
+				std::strcpy(c, s);
 			}
 			else {
 				fail_no_print("ERROR: FixedString set\n");
@@ -135,6 +198,10 @@ namespace ext {
 		print1(o, x.c_str());
 	}
 
+	template <class O>
+	void print1(O & o, DString const& x) {
+		print1(o, x.c_str());
+	}
 
 	template <class O>
 	void print1(O & o, std::string const& x) {
@@ -142,8 +209,11 @@ namespace ext {
 	}
 
 
-	template <class O, class T>
-	void print1_inttype(O & o, T num)
+	// TODO: enable only for T is integer
+	template <class O, class T,	
+		class = typename std::enable_if<std::is_integral<T>::value>::type
+	>
+	void print1(O & o, T num, uint8_t span, uint8_t prec=0, char fill=' ')
 	{
 		unsigned int const N = 32;
 
@@ -166,14 +236,23 @@ namespace ext {
 			buf[i] = char('-');
 			++i;
 		}
-
+		
+		// i -- length or number
+		assert(i <= span);
+		
+		while (span > i) {
+			span--;
+			put(o, fill);			
+		}
+		
 		while (i > 0) {
 			i--;
 			put(o, buf[i]);
 		}
 
 	}
-
+	
+/*
 	template <class O> void print1(O & o, uint8_t x) { print1_inttype(o, x); }
 	template <class O> void print1(O & o, uint16_t x) { print1_inttype(o, x); }
 	template <class O> void print1(O & o, uint32_t x) { print1_inttype(o, x); }
@@ -183,6 +262,10 @@ namespace ext {
 	template <class O> void print1(O & o, int16_t x) { print1_inttype(o, x); }
 	template <class O> void print1(O & o, int32_t x) { print1_inttype(o, x); }
 	template <class O> void print1(O & o, int64_t x) { print1_inttype(o, x); }
+*/
+
+
+	
 
 
 	template <class O>

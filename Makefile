@@ -10,11 +10,11 @@ CC:=clang++
 #CC:=emcc
 
 # output files
-OUTS:=ai/main ext/test go/test front/main gui/main
+OUTS:=ai/main ai/test misc/speed_test ext/test go/test front/main gui/main
 
 # targets
-debug: ai/main ext/test go/test gui/main
-release: ai/main ext/test go/test gui/main
+debug: ai/main ai/test misc/speed_test ext/test go/test front/main gui/main
+release: ai/main ai/test misc/speed_test ext/test go/test front/main gui/main
 
 # em opts
 EMOPTS:= 
@@ -51,8 +51,8 @@ else
 	LLOPTS+=-L./lib 
 	LLOPTS+=-lSDL2
 	LLOPTS+=-lGL -lGLEW 
-	#LLOPTS+=-lpthread
-	LLOPTS+=-lfmt
+	LLOPTS+=-lpthread
+	#LLOPTS+=-lfmt
 	OUT_EXT:=
 endif
 

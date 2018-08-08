@@ -41,61 +41,81 @@ size_t kiB(size_t x) {
 int main(int argc, char * argv[])
 {
 	ext::set_relative_working_dir("../..");
-	
+
 	using namespace naive;
-	
-	
+
+
 	// 1. Load data
 	{
-	
-		//INFO: num of moves: 596191.00
-		//INFO: num of games: 14213.00
 
-	
+		//INFO: num of moves: 597637
+		//INFO: num of games: 14250
+
+		size_t const REP_SIZE = 597637;
+		ext::darray<Go::Board> rep(REP_SIZE);
+		size_t rep_pos = 0;
+
+
 		Go::SFGParser sfg;
 		Go::Board game;
-		char const* fpat = "dataset/unpack/gnugo-v1/{}.sfg";
-		
+		char const* fpat = "dataset/gnugo-v1/{}.sfg";
+
 		// num of positions, num of games
 		Float npos = 0;
 		Float ngames = 0;
-		
-		for (size_t i = 0; i < 14232; ++i)
-		{			
-			FixedString<7> num;		
-			DString fname(PATH_MAX);		
+
+		for (size_t i = 0; i < 14250; ++i)
+		{
+			FixedString<7> num;
+			DString fname(PATH_MAX);
 			auto r = num.range();
 			print1(r, i, 6, 0, '0');
 			auto rr = fname.range();
 			print(rr, fpat, num);
-			
+
 			print("DEBUG: {}\n", fname.c_str());
-			
-			game.reset();
-			Go::sfg_load(sfg, fname.c_str());			
-			while (Go::sfg_next(sfg, game, game)) {
+
+
+			Go::sfg_load(sfg, fname.c_str());
+
+			Score2 result = ;
+
+			Go::Board * curr;
+			Go::Board * next;
+
+
+			curr = &rep.at(rep_pos);
+			curr->reset();
+			curr->result = result;;
+
+			while (Go::sfg_next(sfg, next, game)) {
+
+				next = &rep.at(rep_pos);
+
+				next->result = result;
+
 				npos += 1;
 			}
 			ngames += 1;
 		}
 		print("INFO: num of moves: {}\n", npos);
 		print("INFO: num of games: {}\n", ngames);
-		
+
 	}
-	
-	
+
+
 	// 2. Init model
-	
+
 	Random rand;
 	Mem mem;
 	LinearNet net;
-	
+
 	// calc needed memory
 	mem.set_unlimited();
 	net.init(mem, BATCH_SIZE, 81*4, 81);
 	size_t np, nv;
 	mem.get_used_memory(np, nv, BATCH_SIZE);
-	
+
 	print(" LinearNet\n");
 	print("batch size: {}\n", net.N);
 	print("input size: {}\n", net.H0);
@@ -105,11 +125,11 @@ int main(int argc, char * argv[])
 	print("operational memory x 1: {} kiB\n", kiB<Float>(np * 2 + nv * 2             ) );
 	print("operational memory x N: {} kiB\n", kiB<Float>(np * 2 + nv * 2 * BATCH_SIZE) );
 	print("\n");
-	
+
 	// alloc mem
 	mem.malloc(np, nv, BATCH_SIZE);
 	net.init(mem, BATCH_SIZE, 81*4, 81);
-	
+
 	// random init
 	{
 		auto & x = mem.ps.s;
@@ -117,14 +137,14 @@ int main(int argc, char * argv[])
 		{
 			x[i] = rand.uniform_f(-1, 1);
 		}
-	}	
-	
-	
-	
+	}
+
+
+
 	// 4. Predict and calc accuracy
 	//auto & inn = net.get_input();
 	//inn[{n,i}]
-	
+
 
 	return 0;
 }

@@ -36,10 +36,22 @@ namespace Go {
 		void accept_param(CharRng & w);
 	};
 
+	struct SFG
+	{
+
+		void open(char const* path, Score2 * result);
+
+		void has_next()
+		void next(Action & act, Ply & ply, Rng<char> comment);
+
+
+
+		void close();
+	};
 
 	Action sfg_arg_to_action(char const* arg);
 
-	void sfg_load(SFGParser & sfg, char const* path);	
+	void sfg_load(SFGParser & sfg, char const* path);
 	bool sfg_next(SFGParser & sfg, Board & next, Board & curr);
 
 

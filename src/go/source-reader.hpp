@@ -28,6 +28,8 @@ struct SourceReader
 
 	void close();
 
+	bool is_open() { return fp != nullptr; }
+
 	void mark();
 
 	void unread();

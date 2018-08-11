@@ -3,14 +3,14 @@
 #include "base.hpp"
 
 namespace front {
-	using ext::FixedString;
+	using ext::FString;
 	using ext::print;
 
 	/// This will store FIRST error that was set
 	struct CError
 	{
 		//std::string error;
-		FixedString<512> error;
+		FString<512> error;
 
 		template <class... Args>
 		void set(char const* fmt, Args... args)
@@ -21,7 +21,7 @@ namespace front {
 			}
 		}
 
-		FixedString<512> const& get() const { return error; }
+		FString<512> const& get() const { return error; }
 		bool has() const { return not error.empty(); }
 		void clear() { error.clear(); }
 

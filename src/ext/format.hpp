@@ -51,6 +51,35 @@ namespace ext {
 	// object is T-readable if ext::get(o)->T is defined
 	// object is T-writeable if ext::put(o, T) is defined
 	
+	// owns memory
+	template <class T>
+	struct Buf
+	{
+		T * a{nullptr};
+		T * b{nullptr};
+		T * c{nullptr};
+		
+		Buf() = default;
+		Buf(T * a, T * c): a(a), b(a), c(c) {}
+				
+		T const& operator[](size_t i) const { 
+			T * p = a + i; 
+			assert(p < b);
+			return *p;
+		}
+		
+		T & operator[](size_t i) { 
+			T * p = a + i; 
+			assert(p < b);
+			return *p;
+		}
+		
+		size_t size() const { return b-a; }
+		void clear() { b = a; }
+		void reserve() {
+			
+		}
+	};
 
 	template <class T>
 	struct Rng
@@ -92,11 +121,11 @@ namespace ext {
 			reserve(std::strlen(s));
 			set(s); 
 		}		
-		DString(uint16_t N) { reserve(N); }
+		DString(size_t N) { reserve(N); }
 		~DString() { delete [] c; }
 		DString(DString const&) = delete;
 		
-		void reserve(uint16_t N_) {
+		void reserve(size_t N_) {
 			N = N_;
 			delete [] c;
 			c = new char[N];
@@ -125,16 +154,18 @@ namespace ext {
 		}
 	};
 
+
+
+	// small char buf	
 	template <int16_t N>
-	struct FixedString
+	struct FString
 	{
 		static_assert(N >= 1, "FixedString: N must be at least 1");
 
 		char c[N];
-		uint16_t n;
-
-		FixedString() { clear(); }
-		FixedString(char const* s) { set(s); }
+		
+		FString() { clear(); }
+		FString(char const* s) { set(s); }
 
 		bool empty() const { return c[0] == '\0'; }
 		void clear() { c[0] = '\0'; }
@@ -158,8 +189,7 @@ namespace ext {
 
 
 
-
-	using CharRng = Rng<char>;
+	
 
 	inline void put(Rng<char> & ss, char c)
 	{
@@ -194,7 +224,7 @@ namespace ext {
 
 
 	template <class O, int16_t N>
-	void print1(O & o, FixedString<N> x) {
+	void print1(O & o, FString<N> x) {
 		print1(o, x.c_str());
 	}
 
@@ -213,7 +243,7 @@ namespace ext {
 	template <class O, class T,	
 		class = typename std::enable_if<std::is_integral<T>::value>::type
 	>
-	void print1(O & o, T num, uint8_t span, uint8_t prec=0, char fill=' ')
+	void print1(O & o, T num, uint8_t span=0, uint8_t prec=0, char fill=' ')
 	{
 		unsigned int const N = 32;
 
@@ -238,11 +268,13 @@ namespace ext {
 		}
 		
 		// i -- length or number
-		assert(i <= span);
-		
-		while (span > i) {
-			span--;
-			put(o, fill);			
+		if (span) {
+			assert(i <= span);
+			
+			while (span > i) {
+				span--;
+				put(o, fill);			
+			}
 		}
 		
 		while (i > 0) {
@@ -265,6 +297,9 @@ namespace ext {
 */
 
 
+	inline int parse_int(char const* s) {
+		return std::atoi(s);
+	}
 	
 
 

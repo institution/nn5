@@ -1,68 +1,7 @@
-#include "sfg-parser.hpp"
+#include "sfg.hpp"
 
 namespace Go {
 
-	void load_sfg(Rep & rep, char const* path)
-	{
-		Board * curr = &rep.insert();
-		curr->reset();
-
-		Score2 result = 0;
-
-		SFGParser sfg;
-		sfg.open(path);
-
-		FixedString<3> cmd;
-		auto p = cmd.c_str();
-		sfg.read_cmd(cmd.range());
-
-
-		FixedString<16> arg;
-
-		while (p)
-		{
-			if (cmd == "SZ") {
-				assert(strcmp(p+3, "9") == 0);
-			}
-			else if (strcmp(p, "KM") == 0) {
-				assert(strcmp(p+3, "5.5") == 0);
-			}
-			else if (strcmp(p, "HA") == 0) {
-				assert(strcmp(p+3, "0") == 0);
-			}
-			else if (strcmp(p, "RE")) {
-				// "B+3.5"
-				char who = p[3];
-				int hscore = atoi(&p[5]);
-				result = (who == 'B' ? -1 : +1) * hscore * 2 + 1;
-
-				curr->result = result;
-			}
-			else if (strcmp(p, "B") == 0 or strcmp(p, "W") == 0)
-			{
-				auto ply = (p[0] == 'B' ? PlyBlack : PlyWhite);
-				Action act = ActionPass;
-
-				if (p[3] != '\0') {
-					// not pass
-					act = action_move(Vec(p[3] - 'a', p[4] - 'a'));
-				}
-
-				Board * next = &rep.insert();
-
-				move(*next, *curr, act, ply);
-				next->result = result;
-
-				curr = next;
-			}
-
-			sfg.read_cmd(cmd.range());
-		}
-
-
-
-
-	}
 
 	Score2 get_ply_sign(Ply ply) {
 		if (ply == PlyBlack) return -1;

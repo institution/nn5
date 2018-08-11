@@ -4,7 +4,7 @@
 #include "ext/ext.hpp"
 
 #include "go.hpp"
-#include "sfg-parser.hpp"
+#include "sfg.hpp"
 
 char const* WDIR = "/home/sakar/workspace/nn5-go";
 

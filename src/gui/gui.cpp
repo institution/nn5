@@ -10,7 +10,7 @@ namespace gui {
 	Button resign_button;
 	Button next_button;
 	Go::Board game;
-	Go::SFGParser sfg;
+	Go::SFG * sfg{nullptr};
 
 
 
@@ -42,7 +42,7 @@ namespace gui {
 
 	struct PlyInfo {
 		char letter;
-		FixedString<8> name;
+		FString<8> name;
 		RGBA8 color;
 	};
 
@@ -68,9 +68,9 @@ namespace gui {
 
 
 
-	FixedString<8> get_action_name(Go::Action a)
+	FString<8> get_action_name(Go::Action a)
 	{
-		FixedString<8> s;
+		FString<8> s;
 		auto r = s.range();
 		if (a == Go::ActionNone) {
 			print(r, "none");
@@ -233,9 +233,9 @@ namespace gui {
 
 
 
-	FixedString<8> format_score(Go::Score2 s2)
+	FString<8> format_score(Go::Score2 s2)
 	{
-		FixedString<8> r;
+		FString<8> r;
 		auto rr = r.range();
 
 		if (s2 == 0) {
@@ -260,7 +260,21 @@ namespace gui {
 			auto dim = v2s(12*Ex, 1.4*Em);
 			auto pos = calc_align(this->box, dim, {0.5, 0.5});
 			next_button.init({pos, dim}, ">>", []() {
-				sfg_next(sfg, game, game);
+				
+				if (sfg->has_command()) 
+				{
+					Go::Action act;
+					Go::Ply ply;
+					char const* com;
+					
+					sfg->read_move(&act, &ply, &com);
+					
+					print("DEBUG: {} {} {}\n", act, ply, com);
+					
+					Go::move(game, game, act, ply);					
+				}
+				
+				
 			});
 		}
 
@@ -364,8 +378,13 @@ namespace gui {
 		board.init({0,0});
 		panel.init({board_dim[0], 0, 24 * Ex, board_dim[1]});
 
+
+		sfg = new Go::SFG();
 		if (strcmp(path_sfg, "") != 0) {
-			sfg_load(sfg, path_sfg);
+			sfg->open(path_sfg);
+			Go::Score2 result;
+			sfg->read_header(&result);
+			print("DEBUG: result is {}\n", result);
 		}
 
 	}
@@ -393,6 +412,7 @@ namespace gui {
 
 	Window::~Window() {
 		g_renderer.destroy();
+		delete sfg;
 	}
 
 	bool Window::handle(SDL_Event &o)

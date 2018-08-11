@@ -15,7 +15,7 @@
 
 #include "ext/ext.hpp"
 #include "naive-nn.hpp"
-#include "../go/sfg-parser.hpp"
+#include "../go/sfg.hpp"
 
 
 using namespace ext;
@@ -52,11 +52,12 @@ int main(int argc, char * argv[])
 		//INFO: num of games: 14250
 
 		size_t const REP_SIZE = 597637;
-		ext::darray<Go::Board> rep(REP_SIZE);
+		ext::darray1<Go::Board, size_t> rep;
+		rep.resize(REP_SIZE);
 		size_t rep_pos = 0;
 
 
-		Go::SFGParser sfg;
+		Go::SFG sfg;
 		Go::Board game;
 		char const* fpat = "dataset/gnugo-v1/{}.sfg";
 
@@ -66,7 +67,7 @@ int main(int argc, char * argv[])
 
 		for (size_t i = 0; i < 14250; ++i)
 		{
-			FixedString<7> num;
+			FString<7> num;
 			DString fname(PATH_MAX);
 			auto r = num.range();
 			print1(r, i, 6, 0, '0');
@@ -75,28 +76,36 @@ int main(int argc, char * argv[])
 
 			print("DEBUG: {}\n", fname.c_str());
 
-
-			Go::sfg_load(sfg, fname.c_str());
-
-			Score2 result = ;
-
+			Go::Score2 result = 0;
+			
+			
+			sfg.open(fname.c_str());
+			sfg.read_header(&result);			
+			
 			Go::Board * curr;
 			Go::Board * next;
-
 
 			curr = &rep.at(rep_pos);
 			curr->reset();
 			curr->result = result;;
 
-			while (Go::sfg_next(sfg, next, game)) {
+			Go::Action act;
+			Go::Ply ply;
+			char const* com;
+			
+			while (sfg.has_command()) 
+			{
+				sfg.read_move(&act, &ply, &com);
+
 
 				next = &rep.at(rep_pos);
-
 				next->result = result;
 
 				npos += 1;
 			}
 			ngames += 1;
+			
+			sfg.close();
 		}
 		print("INFO: num of moves: {}\n", npos);
 		print("INFO: num of games: {}\n", ngames);

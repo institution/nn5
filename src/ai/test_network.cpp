@@ -27,6 +27,10 @@ Float stochastic_dparam(Net & nn, Float & para, Float & dpara)
 	return (e1 - e0) / (2.0 * EPS);
 }
 
+void stochastic_grad(Net & net) {
+
+}
+
 TEST_CASE("linear_layer_gradient", "") 
 {
 	// 1 init linear layer params to random
@@ -35,14 +39,27 @@ TEST_CASE("linear_layer_gradient", "")
 	// 4 compare gradients
 	
 	Random rand;	
+	
 	LinearNet net;	
 	net.init(1, 4, 2);	// batch, input, output
-	randomize(net.param(), rand);
-
-	auto & inn = net.input();
 	
+	auto & input = net.input();
+	auto & param = net.param();
+	auto & dparam = net.dparam();
 	
-	inn[{0,i}]
+	randomize(input, rand);
+	randomize(param, rand);
+	
+	net.prop();
+	
+	Array<1> a_dparam(dparam.size());
+	copy(a_dparam, dparam);
+	
+	For (i, param.size()) {
+		auto dp = stochastic_dparam(net, param[i], dparam[i]);
+		
+	}
+		
 	
 	
 	

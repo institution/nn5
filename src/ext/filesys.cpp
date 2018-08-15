@@ -25,7 +25,7 @@ namespace ext {
 		print(r, "/");
 		print(r, rel);
 		
-		print("DEBUG: self exe is: {}\n", buf);
+		//print("DEBUG: self exe is: {}\n", buf);
 		
 		if (realpath(buf, nwd) == nullptr) {
 			ext::fail("ERROR: realpath error: {}\n", strerror(errno));

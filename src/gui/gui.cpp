@@ -269,7 +269,7 @@ namespace gui {
 					
 					sfg->read_move(&act, &ply, &com);
 					
-					print("DEBUG: {} {} {}\n", act, ply, com);
+					//print("DEBUG: {} {} {}\n", act, ply, com);
 					
 					Go::move(game, game, act, ply);					
 				}
@@ -384,7 +384,7 @@ namespace gui {
 			sfg->open(path_sfg);
 			Go::Score2 result;
 			sfg->read_header(&result);
-			print("DEBUG: result is {}\n", result);
+			//print("DEBUG: result is {}\n", result);
 		}
 
 	}

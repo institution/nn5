@@ -51,7 +51,7 @@ namespace Go {
 				}
 					
 				//RE[W+10.5]
-				print("DEBUG: sfg result: {}\n", arg.c_str());				
+				//print("DEBUG: sfg result: {}\n", arg.c_str());				
 			}
 		}
 		
@@ -176,7 +176,8 @@ namespace Go {
 	
 	Go::Action sfg_parse_action(char const* arg)
 	{
-		print("DEBUG: sfg_parse_action: \"{}\"\n", arg);
+		// print("DEBUG: sfg_parse_action: \"{}\"\n", arg);
+		
 		if (strlen(arg) == 2) {
 			return Go::action_move(Go::Vec(arg[0] - 'a', arg[1] - 'a'));
 		}

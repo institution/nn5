@@ -33,10 +33,162 @@ using Float = float;
 
 int const BATCH_SIZE = 32;
 
-template <class T>
-size_t kiB(size_t x) {
-	return (x * sizeof(T)) >> 10;
+
+
+using Boards = ext::darray1<Go::Board, size_t>;
+
+
+void load_gnugo_dataset(Boards & boards) 
+{
+	size_t const DATASET_BOARDS = 611887;
+	                            //597637
+	size_t const DATASET_GAMES = 14250;
+
+	//INFO: num of moves: 597637
+	//INFO: num of games: 14250
+
+	size_t nmoves_read = 0;
+
+	boards.resize(DATASET_BOARDS);
+	
+	Go::SFG sfg;
+		
+	DString fname(255);
+
+	// j - board
+	// i - game	
+	size_t j = 0;
+	size_t i = 0;
+	for (; i < DATASET_GAMES; ++i)
+	{
+		// number of moves in this game
+		size_t nmoves = 0;
+		
+		print(fname.range(), "dataset/gnugo-v1/{}.sfg", Num(i,6,0,'0'));		
+		//print("DEBUG: {}\n", fname.c_str());
+
+		Go::Score2 result = 0;		
+		
+		sfg.open(fname.c_str());
+		sfg.read_header(&result);			
+		
+		Go::Board * curr;
+		Go::Board * next;
+
+		curr = &boards.at(j);
+		
+		// new game
+		curr->reset();
+		curr->result = result;;
+
+		Go::Action act;
+		Go::Ply ply;
+		char const* com;
+		
+		j += 1;
+		while (sfg.has_command()) 
+		{
+			sfg.read_move(&act, &ply, &com);
+			nmoves_read += 1;
+			
+			next = &boards.at(j);
+			
+			Go::move(*next, *curr, act, ply);
+			next->result = result; // overwrite result
+			
+			curr->action = act;
+			
+			curr = next;			
+			j += 1;
+		}
+		
+		sfg.close();
+	}
+		
+	print("INFO: number of boards loaded: {}\n", j);
+	print("INFO: number of games loaded: {}\n", i);
+	print("INFO: number of moves read: {}\n", nmoves_read);
+	
 }
+
+/*
+idea:
+	optimize NN with respect to some value function L
+	than optimize with respect to N=sum(abs(ps)) treating L as a constraint
+	
+	so
+	dL/dps is best gradient, but we can use other gradients as in RMS for ex
+	choose such gradient that also minimize N
+	
+	
+	ex. new RMS
+		p > 0 and dp < 0 => -1
+		p > 0 and dp > 0 => +1/100
+		p < 0 and dp < 0 => -1/100
+		p < 0 and dp > 0 => +1
+		
+		maybe also bigger rise faster so: delta = 1/100 + p*0.1
+		tzn. prefer gradients that will drive parameters to zero
+	
+	comparsion normalizing term
+		normalizing term ie adding sum(ps**2) to L will drive ALL params towards zero - it is fighting with grad(L)
+		new RMS will prefer zeroing params over increasing them but WONT fight with grad(L)
+	
+	original RMS for comparsion:
+		dp < 0 => -1
+		dp > 0 => +1
+	
+	this idea behaves kindof like lexicographical evaluation function in evo.alg ie. L = (a,b,c) and L1 > L2 defined by lexographical order
+	
+	
+	frezze 10% of params each time making an update?
+	
+	
+	---
+	grad is 0
+	net is:
+		x0 * p0 + x0 * p1 -> y0
+		y0 - 1 -> eee
+		requirement x0 == y0
+		p0,p1 = 0.1, 0.9
+		error is zero grad is zero
+		how to move this network to p0,p1 = (0, 1) ???
+		maybe add sum(sqrt(params)) -> one big param is cheaper than 2 small ones
+		let K = sum(sqrt(params))
+		
+		calc gradK under constraint gradL == 0
+		
+		d(sqrt(x))/dx = 1/(2*sqrt(x))
+		d(p0,p1) = (0.32, 0.94)
+		
+		
+		gradL = 0
+		gradK != 0
+		
+		
+		gradL is 0
+		
+		
+		while learnig calc gradL and gradK and what?
+		
+		
+		
+	
+	
+	
+*/
+
+template <class T>
+struct Net
+{
+	T net;
+	Mem mem;
+	Random rand;
+
+	void make_net(T & net, Mem & mem)
+};
+
+
 
 int main(int argc, char * argv[])
 {
@@ -46,110 +198,17 @@ int main(int argc, char * argv[])
 
 
 	// 1. Load data
-	{
-
-		//INFO: num of moves: 597637
-		//INFO: num of games: 14250
-
-		size_t const REP_SIZE = 597637;
-		ext::darray1<Go::Board, size_t> rep;
-		rep.resize(REP_SIZE);
-		size_t rep_pos = 0;
-
-
-		Go::SFG sfg;
-		Go::Board game;
-		char const* fpat = "dataset/gnugo-v1/{}.sfg";
-
-		// num of positions, num of games
-		Float npos = 0;
-		Float ngames = 0;
-
-		for (size_t i = 0; i < 14250; ++i)
-		{
-			FString<7> num;
-			DString fname(PATH_MAX);
-			auto r = num.range();
-			print1(r, i, 6, 0, '0');
-			auto rr = fname.range();
-			print(rr, fpat, num);
-
-			print("DEBUG: {}\n", fname.c_str());
-
-			Go::Score2 result = 0;
-			
-			
-			sfg.open(fname.c_str());
-			sfg.read_header(&result);			
-			
-			Go::Board * curr;
-			Go::Board * next;
-
-			curr = &rep.at(rep_pos);
-			curr->reset();
-			curr->result = result;;
-
-			Go::Action act;
-			Go::Ply ply;
-			char const* com;
-			
-			while (sfg.has_command()) 
-			{
-				sfg.read_move(&act, &ply, &com);
-
-
-				next = &rep.at(rep_pos);
-				next->result = result;
-
-				npos += 1;
-			}
-			ngames += 1;
-			
-			sfg.close();
-		}
-		print("INFO: num of moves: {}\n", npos);
-		print("INFO: num of games: {}\n", ngames);
-
-	}
+	Boards rep;
+	load_gnugo_dataset(rep);
 
 
 	// 2. Init model
-
-	Random rand;
-	Mem mem;
+	Random rand;	
 	LinearNet net;
+	net.init(BATCH_SIZE, 81*4, 81);	
+	randomize(net.param(), rand);
 
-	// calc needed memory
-	mem.set_unlimited();
-	net.init(mem, BATCH_SIZE, 81*4, 81);
-	size_t np, nv;
-	mem.get_used_memory(np, nv, BATCH_SIZE);
-
-	print(" LinearNet\n");
-	print("batch size: {}\n", net.N);
-	print("input size: {}\n", net.H0);
-	print("output size: {}\n", net.H1);
-	print("number of parameters: {}\n", np);
-	print("store memory: {} kiB\n", kiB<Float>(np) );
-	print("operational memory x 1: {} kiB\n", kiB<Float>(np * 2 + nv * 2             ) );
-	print("operational memory x N: {} kiB\n", kiB<Float>(np * 2 + nv * 2 * BATCH_SIZE) );
-	print("\n");
-
-	// alloc mem
-	mem.malloc(np, nv, BATCH_SIZE);
-	net.init(mem, BATCH_SIZE, 81*4, 81);
-
-	// random init
-	{
-		auto & x = mem.ps.s;
-		For (i, x.size())
-		{
-			x[i] = rand.uniform_f(-1, 1);
-		}
-	}
-
-
-
+	
 	// 4. Predict and calc accuracy
 	//auto & inn = net.get_input();
 	//inn[{n,i}]

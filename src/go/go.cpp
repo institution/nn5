@@ -126,9 +126,9 @@ namespace Go {
 				}
 			}
 
-			print("INFO: white_score black_score gray_score = {} {} {}\n", white_score, black_score, gray_score);
-			print("INFO: white_score + black_score + gray_score = {}\n", white_score + black_score + gray_score);
-			print("INFO: N*N*2 = {}\n", N*N*2);
+			//print("INFO: white_score black_score gray_score = {} {} {}\n", white_score, black_score, gray_score);
+			//print("INFO: white_score + black_score + gray_score = {}\n", white_score + black_score + gray_score);
+			//print("INFO: N*N*2 = {}\n", N*N*2);
 			assert(white_score + black_score + gray_score == N*N*2);
 
 			return white_score - black_score;
@@ -249,7 +249,7 @@ namespace Go {
 	{
 		if (self.get(seed)) {
 			if (not at_liberty(self, other, seed)) {
-				print("DEBUG: no liberty at {}\n", seed);
+				//print("DEBUG: no liberty at {}\n", seed);
 				remove_group(self, seed);
 			}
 		}

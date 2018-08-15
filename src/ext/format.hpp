@@ -208,6 +208,9 @@ namespace ext {
 		}
 	}
 
+	
+
+
 
 	template <class O>
 	void print1(O & o, Char x) {
@@ -284,6 +287,23 @@ namespace ext {
 
 	}
 	
+	
+	struct Num
+	{
+		int num;
+		uint8_t span;
+		uint8_t prec;
+		char fill;
+	
+		Num(int num, uint8_t span=0, uint8_t prec=0, char fill='0'): num(num), span(span), prec(prec), fill(fill) {}
+	};
+
+
+	template <class O>
+	void print1(O & o, Num x) {		
+		print1(o, x.num, x.span, x.prec, x.fill);
+	}
+	
 /*
 	template <class O> void print1(O & o, uint8_t x) { print1_inttype(o, x); }
 	template <class O> void print1(O & o, uint16_t x) { print1_inttype(o, x); }
@@ -325,17 +345,19 @@ namespace ext {
 
 
 	template<class O, class T>
-	void print(O & o, T x) {
+	void print_do(O & o, T x) {
 		print1(o, x);
 	}
 
-	template<class O, class T>
-	void print(O && o, T x) {
+	/*template<class O, class T>
+	void print_do(O && o, T x) {
 		print1(o, x);
-	}
+	}*/
+
+
 
 	template<class O, class Arg, class ... Args>
-	void print(O & o, char const* fmt, Arg arg, Args ...args)
+	void print_do(O & o, char const* fmt, Arg arg, Args ...args)
 	{
 		while (1)
 		{
@@ -376,20 +398,48 @@ namespace ext {
 			++fmt;
 		}
 		print1(o, arg);
-		print(o, fmt, args...);
+		print_do(o, fmt, args...);
 	}
 
 
+	// print(stream, format, args...)
+	template<class O, class Arg, class ... Args>
+	void print(O && o, char const* fmt, Arg arg, Args ...args)
+	{
+		print_do(o, fmt, arg, args...);
+	}
 
+	template<class O, class Arg, class ... Args>
+	void print(O & o, char const* fmt, Arg arg, Args ...args)
+	{
+		print_do(o, fmt, arg, args...);
+	}
+	
+	// print(stream, arg)
+	template<class O, class Arg>
+	void print(O && o, Arg arg)
+	{
+		print1(o, arg);
+	}
+
+	template<class O, class Arg>
+	void print(O & o, Arg arg)
+	{
+		print1(o, arg);
+	}
+	
+	// print(format, args...)
 	template<class Arg, class ... Args>
 	void print(char const* fmt, Arg arg, Args ...args)
 	{
-		print(stdout, fmt, arg, args...);
+		print_do(stdout, fmt, arg, args...);
 	}
-
-	inline void print(char const* fmt)
+	
+	// print(arg)
+	template<class Arg>
+	inline void print(Arg arg)
 	{
-		print(stdout, fmt);
+		print_do(stdout, arg);
 	}
 
 

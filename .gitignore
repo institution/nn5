@@ -1,4 +1,5 @@
-dataset/unpack/*
+
+dataset/gnugo-v1/*
 bin/*
 obj/*
 core

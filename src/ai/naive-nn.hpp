@@ -45,6 +45,12 @@
 
 using Float = float;
 
+template <class T>
+size_t kiB(size_t x) {
+	return (x * sizeof(T)) >> 10;
+}
+
+
 namespace naive
 {
 	using namespace ext;
@@ -506,8 +512,18 @@ namespace naive
 			}
 		}	
 	}
+
+	template <class T>
+	void randomize(T & ts, Random & rand)
+	{
+		For (i, ts.size()) { ts[i] = rand.uniform_f(-1, 1); }
+	}
+
 	
-	
+	// Array
+	// Layer = Array + input & output reference
+	// Layer = multiple layers combined
+	// Net = Layer + memory managment
 
 	struct LinearNet
 	{
@@ -517,23 +533,53 @@ namespace naive
 		Array<2> pattern; // H1
 		Linc output; // H1
 		Mse mse;
-			
 		
-		void init(Mem & mem, size_t N_, size_t H0_, size_t H1_) 
+		// also manage your own memory	
+		Mem mem;
+		
+		void alloc() {
+			// mse <- M <- N
+			alloc(xs, mem.vs, {N,H0});
+			alloc(pattern, mem.vs, {N,H1});
+			output.init(mem, xs, H1);
+			mse.init(mem, output.ys, pattern);
+		}
+		
+		void init(size_t N_, size_t H0_, size_t H1_) 
 		{
 			N = N_;
 			H0 = H0_;
 			H1 = H1_;
 		
-			// mse <- M <- N						
-			alloc(xs, mem.vs, {N,H0});
-			alloc(pattern, mem.vs, {N,H1});
-			output.init(mem, xs, H1);
-			mse.init(mem, output.ys, pattern);		
-		}
+			// calc used mem
+			mem.set_unlimited();
+			this->alloc(mem);			
+			size_t np, nv;
+			mem.get_used_memory(np, nv, N);
+			
+			// alloc mem
+			mem.malloc(np, nv, BATCH_SIZE);
+			this->alloc(mem);
 		
-		Array<2> const& out() const { return output.ys; }
-		Array<1> const& err() const { return mse.ys; }
+			if (1) {
+				print("INFO:  LinearNet\n");
+				print("INFO: batch size: {}\n", net.N);
+				print("INFO: input size: {}\n", net.H0);
+				print("INFO: output size: {}\n", net.H1);
+				print("INFO: number of parameters: {}\n", np);
+				print("INFO: store memory: {} kiB\n", kiB<Float>(np) );
+				print("INFO: operational memory x 1: {} kiB\n", kiB<Float>(np * 2 + nv * 2             ) );
+				print("INFO: operational memory x N: {} kiB\n", kiB<Float>(np * 2 + nv * 2 * BATCH_SIZE) );
+				print("\n");
+			}
+		}
+
+		
+		Array<1> & param() { return mem.ps.s; }	
+		Array<2> & input() { return xs; }		
+		Array<2> & pattern() { return pattern; }		
+		Array<2> const& output() const { return output.ys; }
+		Array<1> const& error() const { return mse.ys; }
 		
 		
 		void prop() {
@@ -541,6 +587,7 @@ namespace naive
 			output.prop();
 			mse.prop();
 		}
+		
 		void backprop() {			
 			mse.backprop();
 			output.backprop();			

@@ -51,7 +51,32 @@ namespace ext {
 	// object is T-readable if ext::get(o)->T is defined
 	// object is T-writeable if ext::put(o, T) is defined
 	
-	// owns memory
+	
+
+	template <class T>
+	struct Rng
+	{
+		T * a;
+		T * b;
+		Rng(): a(nullptr), b(nullptr) {}
+		Rng(T * a, T * b): a(a), b(b) {}
+		
+		T const& operator[](size_t i) const { 
+			T * p = a + i; 
+			assert(p < b);
+			return *p;
+		}
+		
+		T & operator[](size_t i) { 
+			T * p = a + i; 
+			assert(p < b);
+			return *p;
+		}
+		
+		size_t size() const { return b-a; }
+	};
+	
+	// do not own memory
 	template <class T>
 	struct Buf
 	{
@@ -76,32 +101,30 @@ namespace ext {
 		
 		size_t size() const { return b-a; }
 		void clear() { b = a; }
-		void reserve() {
-			
-		}
-	};
-
-	template <class T>
-	struct Rng
-	{
-		T * a;
-		T * b;
-		Rng(): a(nullptr), b(nullptr) {}
-		Rng(T * a, T * b): a(a), b(b) {}
+	
 		
-		T const& operator[](size_t i) const { 
-			T * p = a + i; 
-			assert(p < b);
-			return *p;
+		Rng<T> used() const { return Rng<T>{a,b}; }
+		Rng<T> free() const { return Rng<T>{b,c}; }
+		
+		
+		void inc(size_t n) {
+			b += n;
+			if (b >= c) {
+				fail_no_print("ERROR: buffer overflow\n");
+			}
 		}
 		
-		T & operator[](size_t i) { 
-			T * p = a + i; 
-			assert(p < b);
-			return *p;
+		void set(T * a, T * b) {
+			this->a = a;
+			this->b = a;
+			this->c = b;
 		}
 		
-		size_t size() const { return b-a; }
+		void set(Rng<T> const& p) {
+			this->a = p.a;
+			this->b = p.a;
+			this->c = p.b;
+		}
 	};
 
 	struct Char {

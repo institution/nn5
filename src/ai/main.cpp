@@ -178,15 +178,16 @@ idea:
 	
 */
 
+/*
 template <class T>
 struct Net
 {
 	T net;
-	Mem mem;
+	naiveMem mem;
 	Random rand;
 
 	void make_net(T & net, Mem & mem)
-};
+};*/
 
 
 
@@ -206,7 +207,7 @@ int main(int argc, char * argv[])
 	Random rand;	
 	LinearNet net;
 	net.init(BATCH_SIZE, 81*4, 81);	
-	randomize(net.param(), rand);
+	randomize(net.par().v, rand);
 
 	
 	// 4. Predict and calc accuracy

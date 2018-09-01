@@ -6,6 +6,7 @@
 // small value to disturb parameters
 Float const EPS = 0.000001;
 
+using namespace ext;
 
 template <class Net>
 Float stochastic_dparam(Net & nn, Float & para, Float & dpara) 
@@ -17,18 +18,33 @@ Float stochastic_dparam(Net & nn, Float & para, Float & dpara)
 	
 	para = orig_para - EPS;
 	nn.prop();
-	auto e0 = nn.get_error();
+	auto e0 = nn.err().v[0];
 			
 	para = orig_para + EPS;
 	nn.prop();
-	auto e1 = nn.get_error();
+	auto e1 = nn.err().v[0];
 	para = orig_para;
 		
 	return (e1 - e0) / (2.0 * EPS);
 }
 
-void stochastic_grad(Net & net) {
+template <class Array, class Net>
+void stochastic_grad(Array & grad, Net & net) 
+{
+	auto & param = net.par().v;
+	auto & dparam = net.par().d;
+	
+	assert(grad.size() == dparam.size());
+	
+	For (i, param.size()) {
+		grad[i] = stochastic_dparam(net, param[i], dparam[i]);
+	}
+}
 
+bool approx_eq(float a, float b) {
+	auto x = (a - b);
+	return x*x < EPS*EPS;
+	//CHECK(sg == Approx(ag).epsilon(tolerance));
 }
 
 TEST_CASE("linear_layer_gradient", "") 
@@ -40,32 +56,32 @@ TEST_CASE("linear_layer_gradient", "")
 	
 	Random rand;	
 	
-	LinearNet net;	
+	naive::LinearNet net;	
 	net.init(1, 4, 2);	// batch, input, output
+
+	net.clear();
 	
-	auto & input = net.input();
-	auto & param = net.param();
-	auto & dparam = net.dparam();
-	
+	auto & input = net.inn().v;
+	auto & param = net.par().v;
+	auto & dparam = net.par().d;
+
 	randomize(input, rand);
 	randomize(param, rand);
-	
+		
+	ext::darray1<Float, size_t> sgrad(param.size());
+	stochastic_grad(sgrad, net);
+		
 	net.prop();
+	net.backprop();
 	
-	Array<1> a_dparam(dparam.size());
-	copy(a_dparam, dparam);
-	
-	For (i, param.size()) {
-		auto dp = stochastic_dparam(net, param[i], dparam[i]);
-		
+	For(i, dparam.size()) {
+		REQUIRE(approx_eq(sgrad[i], dparam(i)));		
 	}
-		
-	
-	
 	
 }
 
 
+/*
 
 VectorXf get_random_label(int32_t M, bool normalized)
 {
@@ -86,12 +102,7 @@ VectorXf get_random_label(int32_t M, bool normalized)
 }
 
 
-template <class Net>
-Float analytical_gradient_on(Net & nn, Float & para, Float & dpara) 
-{	
-	nn.run_one(1,false,2);
-	return dpara;		
-}
+
 
 
 	
@@ -217,13 +228,6 @@ TEST_CASE( "test_net1_gradient", "" )
 		lab = get_random_label(M, 1);	
 		
 		
-		/*inn[0] = 0.2;
-		lab[0] = 0.3;
-		nn.yx[0].wags(0,0) = 0.5;
-		nn.yx[0].bias[0] = 0.1;
-		nn.yx[1].wags(0,0) = 0.8;
-		nn.yx[1].bias[0] = -0.2;
-		*/
 		
 		nn.get_input() = inn;
 		nn.get_label() = lab;
@@ -256,4 +260,4 @@ TEST_CASE( "test_net1_gradient", "" )
 }
 
 
-
+*/

@@ -10,11 +10,11 @@ CC:=clang++
 #CC:=emcc
 
 # output files
-OUTS:=ai/main ai/test misc/speed_test ext/test go/test front/main gui/main
+OUTS:=ai/test_network ai/main ai/mtest ai/test misc/speed_test ext/test go/test front/main gui/main
 
 # targets
-debug: ai/main ai/test misc/speed_test ext/test go/test front/main gui/main
-release: ai/main ai/test misc/speed_test ext/test go/test front/main gui/main
+debug: ai/test_network ai/main ai/test misc/speed_test ext/test go/test front/main gui/main
+release: ai/test_network ai/main ai/test misc/speed_test ext/test go/test front/main gui/main
 
 # em opts
 EMOPTS:= 
@@ -28,7 +28,7 @@ EMOPTS+=-s ASSERTIONS=1
 
 # compiler options
 CCOPTS:=
-CCOPTS+=-std=c++14
+CCOPTS+=-std=c++17
 #CCOPTS+=-stdlib=libc++
 CCOPTS+=-I./src
 CCOPTS+=-Wsign-compare -Wreturn-type -Wparentheses -Wpedantic -Wconversion-null 

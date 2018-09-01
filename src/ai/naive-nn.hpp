@@ -1,5 +1,5 @@
 #pragma once
-
+#include <type_traits>
 #include "ext/ext.hpp"
 
 // go input:
@@ -63,24 +63,43 @@ namespace naive
 	//   model -- wrapper around net, takes problem and applies to net
 	
 		
+	/// Store N-dimensional position or area
 	template <size_t N>
-	struct Dim {
+	struct Dim 
+	{
 		size_t dim_[N];
+		
+		// linear access
 		size_t & operator[](size_t i) { assert(i < N); return dim_[i]; }
 		size_t const& operator[](size_t i) const { assert(i < N); return dim_[i]; }	
+		
+		// dimensions
 		size_t size() const { return N; }
-		size_t span() const { 
-			auto i = N;
-			size_t m = 1;
-			while(i > 0) {
-				--i;
-				m *= dim_[i];
-			}
-			return m;
-		}
+		size_t span() const;
+			
+		// constructing
+		template <class ... Args,
+			class = std::enable_if_t<(sizeof...(Args) == N)>,
+			class = std::enable_if_t<(... && std::is_convertible_v<Args, size_t>)>
+		>
+		Dim(Args ... args): dim_{args ...} {}
+		Dim() = default;
 	};
 	
+	/// Return linear size of adressed space for this dim
+	template <size_t N>
+	size_t Dim<N>::span() const 
+	{ 
+		auto i = N;
+		size_t m = 1;
+		while (i > 0) {
+			--i;
+			m *= dim_[i];
+		}
+		return m;
+	}
 	
+	/// Return linear(1) position of posN in dimN
 	template<size_t N>
 	size_t get_pos1(Dim<N> & dim, Dim<N> const& pos) 
 	{ 
@@ -96,82 +115,229 @@ namespace naive
 		return pos1;
 	}
 	
-	// array stores dual x and dx 
 	template <size_t N>
-	struct Array
+	struct Mat
 	{
-		Dim<N> dim;
+		Rng<Float> rng;
+		Dim<N> dim;		
 		
-		Rng<Float> s;
-		Rng<Float> d;
+		Mat() = default;		
+		Mat(Rng<Float> const& rng, Dim<N> const& dim): rng(rng), dim(dim) {}
 				
-		Float & operator[](size_t i) { return s[i]; }
-		Float const& operator[](size_t i) const { return s[i]; }
-		
-		Float & operator[](Dim<N> pos) { return s[get_pos1(dim, pos)]; }
-		Float const& operator[](Dim<N> pos) const { return s[get_pos1(dim, pos)]; }
-				
-		size_t size() const { 
-			return s.b - s.a;			
+		void set(Float * a, Float * b) 
+		{
+			static_assert(N == 1);
+			rng.a = a;
+			rng.b = b;
+			dim[0] = b - a;
 		}
+		
+		void set(Rng<Float> const& src) 
+		{
+			static_assert(N == 1);
+			rng.a = src.a;
+			rng.b = src.b;
+			dim[0] = src.b - src.a;
+		}
+		
+		
+		// linear
+		size_t size() const { return rng.size(); }
+		
+		Float & operator[](size_t i) { return rng[i]; }
+		Float const& operator[](size_t i) const { return rng[i]; }
+	
+	
+		// layer
+		Mat<N> & inn() { return *this; }
+		Mat<N> & out() { return *this; }
+		
+		template <size_t M>
+		Mat<M> reshaped(Dim<M> const& ndim) {
+			if (ndim.span() != size()) {
+				ext::fail("ERROR: reshaped: invalid dim\n");
+			}
+			return Mat<M>(rng, ndim);
+		}
+		
+		// n-dim access
+		template <class ... Args,
+			class = std::enable_if_t<(sizeof...(Args) == N)>,
+			class = std::enable_if_t<(... && std::is_convertible_v<Args, size_t>)>
+		>
+		Float & operator()(Args ... args) { return rng[get_pos1(dim, {args...})]; }
+		
+		template <class ... Args,
+			class = std::enable_if_t<(sizeof...(Args) == N)>,
+			class = std::enable_if_t<(... && std::is_convertible_v<Args, size_t>)>
+		>
+		Float const& operator()(Args ... args) const{ return rng[get_pos1(dim, {args...})]; }
+		
+		// n-dim access
+		Float & operator()(Dim<N> const& pos) { return rng[get_pos1(dim, pos)]; }
+		Float const& operator()(Dim<N> const& pos) const { return rng[get_pos1(dim, pos)]; }
+	};
+	
+	/// N-dim memory view of dual mem areas
+	template <size_t N>
+	struct DualMat
+	{
+		Mat<N> v;
+		Mat<N> d;
+		
+		Mat<N> & sole() { return v; }
+		Mat<N> & dual() { return d; }
+
+		DualMat<N> & inn() { return *this; }
+		DualMat<N> & out() { return *this; }
+		
+		Dim<N> & dim() { return v.dim; }
+		Dim<N> const& dim() const { return v.dim; }
+		size_t dim(unsigned i) const { return v.dim[i]; }
+		
+		size_t size() const { return v.size(); }
+		
+		/*void set(Dim<N> dim_, Rng<Float> lin_, Rng<Float> dlin_) {
+			dim = dim_;
+			lin = lin_;
+			dlin = dlin_;
+		}*/
+		
 	};
 	
 	
 	template <size_t K, size_t N>
-	Array<K> reshape(Array<N> x, Dim<K> dim) 
+	DualMat<K> reshape(DualMat<N> const& src, Dim<K> const& dim) 
 	{
-		Array<K> y = x;
-		y.dim = dim;
-		
-		auto k = x.size();
-				
-		if (x.size() != k) {
-			ext::fail("ERROR: reshape: invalid size\n");
-		}
-		if (get_array_size(x.dim) != k) {
-			ext::fail("ERROR: reshape: invalid size\n");
-		}
-		if (get_array_size(y.dim) != k) {
-			ext::fail("ERROR: reshape: invalid size\n");
+		if (dim.span() != src.size()) {
+			ext::fail("ERROR: reshape: invalid dim\n");
 		}
 		
-		return y;
+		// same memory, diffrent dim
+		DualMat<K> dst = src;
+		dst.dim = dim;
+		return dst;
 	}
 	
 	
 	
-	template <size_t N>
-	Float & d(Array<N> & x, Dim<N> const& pos) { return x.d[get_pos1(x.dim, pos)]; }
+	struct DualBuf
+	{
+		Buf<Float> a;
+		Buf<Float> d;		
+	};
 	
-	template <size_t N>
-	Float const& d(Array<N> const& x, Dim<N> const& pos) { return x.d[get_pos1(x.dim, pos)]; }
-	
+	/*
+	struct MemBuf: Buf
+	{
+		void reserve()
+		Mem()
+		~MemBuf()
+	};*/
 	
 	struct Mem
 	{		
 		Float * ptr{nullptr};
 		
-		Array<1> vs; // temporary values
-		Array<1> ps; // parameters
+		DualMat<1> free_param;
+		DualMat<1> free_value;		
+		DualMat<1> used_param;
+		DualMat<1> used_value;
 		
-		
-		
-		void malloc(size_t np, size_t nv, size_t N);
 		
 		Mem() {}
-		~Mem() { delete [] ptr; }
+		~Mem() {
+			print("INFO: releasing memory\n");
+			delete [] ptr;
+		}
+	
+		DualMat<1> & par() { return used_param; }
+		DualMat<1> & val() { return used_value; }		
+		DualMat<1> const& par() const { return used_param; }
+		DualMat<1> const& val() const { return used_value; }
+		
+		void malloc(size_t np, size_t nv, size_t N);		
+		
+		Rng<Float> move_a(Mat<1> & m, size_t k) {
+			Rng<Float> r;
+			r.a = m.rng.a;
+			m.rng.a += k;
+			if (m.rng.a > m.rng.b) {
+				ext::fail("ERROR: buffer overflow\n");
+			}
+			m.dim[0] -= k;
+			r.b = m.rng.a;
+			return r;
+		}
+		Rng<Float> move_b(Mat<1> & m, size_t k) {
+			Rng<Float> r;
+			r.a = m.rng.b;
+			m.rng.b += k;			
+			m.dim[0] += k;
+			r.b = m.rng.b;
+			return r;
+		}
+		
+		
+		template <size_t N>
+		void assign_param(DualMat<N> & m, Dim<N> const& d) 
+		{			
+			//assert(m.v.rng.size() == 0);
+			//assert(m.v.dim.span() == 0);
+		
+			//assert(m.d.rng.size() == 0);
+			//assert(m.d.dim.span() == 0);
+			
+			auto span = d.span();
+			
+			m.v.rng = move_a(free_param.v, span);
+			m.v.dim = d;
+			move_b(used_param.v, span);
+			
+			m.d.rng = move_a(free_param.d, span);
+			m.d.dim = d;
+			move_b(used_param.d, span);
+		}
+		
+		template <size_t N>
+		void assign_value(DualMat<N> & m, Dim<N> const& d) 
+		{
+			//assert(m.v.rng.size() == 0);
+			//assert(m.v.dim.span() == 0);
+		
+			//assert(m.d.rng.size() == 0);
+			//assert(m.d.dim.span() == 0);
+			
+			auto span = d.span();
+			
+			m.v.rng = move_a(free_value.v, span);
+			m.v.dim = d;
+			move_b(used_value.v, span);
+			
+			m.d.rng = move_a(free_value.d, span);
+			m.d.dim = d;
+			move_b(used_value.d, span);			
+		}
+		
+		
+		
 		
 		void get_used_memory(size_t & np, size_t & nv, size_t N);
-
 		
-		void set_unlimited() {
+		void fake_malloc()
+		{
 			Float * max = reinterpret_cast<Float*>(1000000000);
-			vs.s = Rng<Float>(nullptr,max);
-			vs.d = Rng<Float>(nullptr,max);
-			ps.s = Rng<Float>(nullptr,max);
-			ps.d = Rng<Float>(nullptr,max);	
-			vs.dim[0] = 0;
-			ps.dim[0] = 0;
+			Float * min = reinterpret_cast<Float*>(0);
+			 				
+			free_param.v.set(min,max);
+			free_param.d.set(min,max);
+			free_value.v.set(min,max);
+			free_value.d.set(min,max);
+			
+			used_param.v.set(free_param.v.rng.a, free_param.v.rng.a);
+			used_param.d.set(free_param.d.rng.a, free_param.d.rng.a);
+			used_value.v.set(free_value.v.rng.a, free_value.v.rng.a);
+			used_value.d.set(free_value.d.rng.a, free_value.d.rng.a);	
 		}
 		
 		/*
@@ -187,59 +353,32 @@ namespace naive
 	
 	
 	
-	void alloc(Rng<Float> & dst, Rng<Float> & src, size_t n) 
-	{		
-		dst.a = src.a;
-		src.a += n;
-		if (src.a > src.b) {
-			ext::fail("ERROR: range overflow\n");
-		}
-		dst.b = src.a;		
-	}
+	
 			
-	template <size_t N>
-	void alloc(Array<N> & dst, Array<1> & src, Dim<N> const& dim) 
-	{
-		dst.dim = dim;
-		alloc(dst.s, src.s, dim.span());
-		alloc(dst.d, src.d, dim.span());
-			
-	}
-
-	void Mem::get_used_memory(size_t & np, size_t & nv, size_t N)
-	{
-		nv = (reinterpret_cast<size_t>(vs.s.a)/sizeof(Float)) / N;  //  
-		np = reinterpret_cast<size_t>(ps.s.a)/sizeof(Float);  // num of params
-	}
 	
 
-	void Mem::malloc(size_t np, size_t nv, size_t N)
-	{	
-		// memory layout:
-		// params[np]		
-		// dparams[np]
-		// values[nv]
-		// dvalues[nv]
 	
-		ptr =  new Float[np*2 + nv*2*N];
+	// Dual
+	//  assign
+	//  a/d
+	//  reshape
+	//  inn == out == self
+			
+	// Layer	
+	//  init
+	//  prop/backprop
+	//  inn/out/...
 	
-		Float * p = ptr;
-		Float * q = p + np;
-		ps.s = Rng<Float>{p, q};
-		
-		p = q;
-		q = p + np;		
-		ps.d = Rng<Float>{p, q};
-		
-		p = q;
-		q = p + nv*N;		
-		vs.s = Rng<Float>{p, q};
-		
-		p = q;
-		q = p + nv*N;		
-		vs.d = Rng<Float>{p, q};
-		
-	}
+	// Network -- layer with memory
+	//  alloc
+	//  prop/backprop
+	//  inn/out/...
+	
+	// Standard endpoints
+	// inn()
+	// pat()
+	// out()	
+	// mse()
 	
 	
 	
@@ -249,106 +388,54 @@ namespace naive
 		// H -> H
 		size_t N,H;
 		
-		Array<2> xs;
-		Array<2> ys;
-		
+		DualMat<2> xs;
+		DualMat<2> ys;
+				
 		void prop();
 		void backprop();
 		
-		void init(Mem & mem, Array<2> const& xs_) {
-			this->xs = xs_;
-			N = xs.dim[0];
-			H = xs.dim[1];			
-			alloc(ys, mem.vs, Dim<2>{N,H});
+		void init(Mem & mem, DualMat<2> const& xs_) {
+			xs = xs_;
+			N = xs.dim(0);
+			H = xs.dim(1);			
+			mem.assign_value(ys, {N,H});
 		}		
 	};
 	
-	void ReLU::prop() 
-	{
-		For (n, N) {
-			For (h, H) {
-				auto x = xs[{n,h}];
-				ys[{n,h}] = (x > 0) ? x : 0;
-			}
-		}
-	}
-
-	void ReLU::backprop() 
-	{
-		For (n, N) {
-			For (h, H) {			
-				auto dx = (xs[{n,h}] > 0) ? 1 : 0;
-				d(xs,{n,h}) = d(ys,{n,h}) * dx;
-			}
-		}
-	}
 	
 	
-	struct Linc {
+	struct Linc 
+	{
 		// fully connected linear combination layer
 		// N -> M
 	
 		size_t N, H0, H1;
 		
-		Array<2> xs; // N,H0
-		Array<2> ps; // H1,H0
-		Array<2> ys; // N,H1
+		DualMat<2> xs; // N,H0
+		DualMat<2> ps; // H1,H0
+		DualMat<2> ys; // N,H1
+				
+		DualMat<2> & inn() { return xs; }		
+		DualMat<2> & par() { return ps; }		
+		DualMat<2> const& out() const { return ys; }
+					
 				
 		void prop();
 		void backprop();				
 		
-		void init(Mem & mem, Array<2> const& xs_, size_t H1_) {
-			this->xs = xs_;
-			H1 = H1_;
-			N = xs.dim[0];
-			H0 = xs.dim[1];			
-			alloc(ps, mem.ps, Dim<2>{H1,H0});
-			alloc(ys, mem.vs, Dim<2>{N,H1});
+		void init(Mem & mem, DualMat<2> const& xs_, size_t H1_) 
+		{
+			xs = xs_;			
+			N = xs.dim(0);
+			H0 = xs.dim(1);			
+			H1 = H1_;			
+			mem.assign_param(ps, {H1,H0});
+			mem.assign_value(ys, { N,H1});
 		}
 			
 	};
 	
-	void Linc::prop() 
-	{
-		// H1 <- H0
-		
-		For (n, N) {
-			For (h1, H1) {
-				Float y = 0;
-				For (h0, H0) {
-					y += ps[{h1,h0}] * xs[{n,h0}];
-				}
-				ys[{n,h1}] = y;
-				//ys(n,j) = dot(ps(j), xs(n));
-			}
-		}
-		//b.vals = (ba.wags * a.vals + ba.bias).array() - Float(2);	
-		//set(b.difs, 1);
-	}
-
-
-	void Linc::backprop() 
-	{
-		// dL/dy[j] == dy[j]
-		// dy[j]/dx[i] == p[j,i]
-		For (n, N) {
-			For (h0, H0) {
-				Float dx = 0;
-				For (h1, H1) {
-					dx += d(ys,{n,h1}) * ps[{h1,h0}];
-					
-					d(ps,{h1,h0}) = d(ys,{n,h1}) * xs[{n,h0}];
-				}
-				// dL/dx[i]
-				d(xs, {n,h0}) = dx;
-			}
-		}
-			
-		//a.difs.array() *= (ba.wags.transpose() * b.difs).array();	
-		//ba.dwags.array() *= (b.difs * a.vals.transpose()).array();
-		//ba.dbias.array() *= b.difs.array();		
-		
-	}
+	
 	
 	
 	
@@ -363,26 +450,26 @@ namespace naive
 		
 		size_t N, H, W, C0, C1;
 		
-		Array<4> xs; // N H W C0
-		Array<4> ps; // C1 3 3 C0
-		Array<4> ys; // N H W C1
+		DualMat<4> xs; // N H W C0
+		DualMat<4> ps; // C1 3 3 C0
+		DualMat<4> ys; // N H W C1
+		
+		DualMat<4> & inn() { return xs; }
+		DualMat<4> & par() { return ps; }
+		DualMat<4> & out() { return ys; }
 			
-			
-		void init(Mem & mem, Array<4> const& xs_, size_t C1_) 
+		void init(Mem & mem, DualMat<4> const& xs_, size_t C1_) 
 		{
-			xs = xs_;
+			xs = xs_;						
+			N = xs.dim(0);
+			H = xs.dim(1);
+			W = xs.dim(2);
+			C0 = xs.dim(3);
 			C1 = C1_;
 			
-			N = xs.dim[0];
-			H = xs.dim[1];
-			W = xs.dim[2];
-			C0 = xs.dim[3];			
-			
-			alloc(ps, mem.ps, {C1,3,3,C0});
-			alloc(ys, mem.vs, {N,H,W,C1});
+			mem.assign_param(ps, {C1,3u,3u,C0});
+			mem.assign_value(ys, { N,H,W,C1});
 		}
-		
-		
 		
 		void prop();
 		void backprop();
@@ -390,128 +477,36 @@ namespace naive
 		void kermul(size_t n, size_t h0, size_t w0, size_t c1);
 	};
 	
-	void Conv::prop() 
-	{
-		For(n,N) {				
-			// h0,w0 -- left top corner
-			For (h0, H - 2) {
-				For(w0, W - 2) {
-					For (c1, C1) {
-						kermul(n,h0,w0,c1);
-					}			
-				}
-			}
-			
-		}
-	}
-	
-	
-	
-	void Conv::kermul(size_t n, size_t h0, size_t w0, size_t c1)
-	{
-		// h0,w0 -- left top corner
-		Float y = 0;
-		// over kernel
-		For (h, H) {
-			For (w, W) {
-				For (c0, C0) {
-					y += ps[{c1, h, w, c0}] * xs[{n,h0+h,w0+w,c0}];
-				}
-			}
-		}			
-		ys[{n,h0,w0,c1}] = y;
-	
-	}
-	/*
-		
-	void Conv::backprop(h0,w0) {		
-		y = 0
-		for j 0 3
-			for i 0 3
-				for c 0 C0
-					y += kernel(j,i,c) * inn(h0+j, w0+i, c)
-							
-					//dkernel(j,i,c) =+ inn(h0+j, w0+i, c)       // dy/dk
-					
-					//dinn(h0+j, w0+i, c) =+ kernel(j,i,c)
-					
-					
-			
-		out[h0,w0,c1] = y
-		
-		//dout[h0,w0,c1] = 1
-	}
-	
-	void backprop_apply_at(h0,w0) {		
-		// y = out[h0,w0,c1]
-		auto ddy = dout[h0,w0,c1]    // dL/dy
-				
-		y = 0
-		for j 0 3
-			for i 0 3
-				for c 0 C0
-					// y += kernel(j,i,c) * inn(h0+j, w0+i, c)
-		
-					auto x = inn(h0+j, w0+i, c)
-					k = kernel(j,i,c)
-					// dy/dk == x					
-					// ddk := dL/dk
-					auto & ddk = dkernel(j,i,c) 
-					ddk += ddy * x
-					
-					auto & ddx = dinn(h0+j, w0+i, c);
-					ddx =+ ddy * k
-	
-	}
-	
-	*/
 	
 	
 	
 	struct Mse
 	{
-		size_t N,H;
+		// N -> 1
+		size_t N;
 	
-		Array<2> xs0;
-		Array<2> xs1;		
-		Array<1> ys;
+		DualMat<1> xs0;
+		DualMat<1> xs1;		
+		DualMat<1> ys;
 				
-		void init(Mem & mem, Array<2> const& xs0_, Array<2> const& xs1_) {
-			assert(xs0_.size() == xs1_.size());
-			N = xs0_.dim[0];
-			H = xs0_.dim[1];
-						
+		DualMat<1> & inn0() { return xs0; }
+		DualMat<1> & inn1() { return xs1; }
+		DualMat<1> const& out() const { return ys; }
+				
+		void init(Mem & mem, DualMat<1> const& xs0_, DualMat<1> const& xs1_) 
+		{
+			assert(xs0_.size() == xs1_.size());			
 			xs0 = xs0_;
 			xs1 = xs1_;
-			alloc(ys, mem.vs, {N});
-		}	
+			N = xs0_.dim(0);
+			mem.assign_value(ys, {1});
+		}
 		
 		void prop();
-		void backprop()	;
+		void backprop();		
 	};
 	
-	void Mse::prop() 
-	{
-		Float y = 0;		
-		For(i, N) {
-			auto x = xs0[i] - xs1[i];		
-			y += x*x;
-		}
-		ys[0] = y;
-	}
-	
-	void Mse::backprop() 
-	{	
-		For (n, N) {
-			auto dy = d(ys,{n});
-			assert(dy == 1);   // usually :)
-			For (h, H) {
-				auto x = xs0[{n,h}] - xs1[{n,h}];
-				d(xs0,{n,h}) = dy * 2*x * (+1);
-				d(xs1,{n,h}) = dy * 2*x * (-1);
-			}
-		}	
-	}
+
 
 	template <class T>
 	void randomize(T & ts, Random & rand)
@@ -519,30 +514,49 @@ namespace naive
 		For (i, ts.size()) { ts[i] = rand.uniform_f(-1, 1); }
 	}
 
-	
-	// Array
-	// Layer = Array + input & output reference
-	// Layer = multiple layers combined
-	// Net = Layer + memory managment
+	struct XorNet {
+		// N*2 -> N*2 -> N*1 -> MSE
+		size_t N{4};
 
+		DualMat<2> input;		
+		Linc hidden;
+		Linc output;
+		DualMat<1> pattern;
+		Mse mse;
+		
+		
+	};
+	
+	
 	struct LinearNet
 	{
+		// H0 -> H1
 		size_t N, H0, H1;
 		
-		Array<2> xs;   // H0
-		Array<2> pattern; // H1
-		Linc output; // H1
-		Mse mse;
+		DualMat<2> inn_;   // H0
+		DualMat<2> pat_; // H1
+		Linc out_; // H1
+		Mse mse_; // 1
 		
 		// also manage your own memory	
 		Mem mem;
+
+		
+		
+		DualMat<2> & inn() { return inn_; }		
+		DualMat<2> & pat() { return pat_; }		
+		DualMat<2> const& out() const { return out_.out(); }
+		DualMat<1> const& mse() const { return mse_.out(); }
+		DualMat<1> const& err() const { return mse_.out(); }
+		DualMat<1> & par() { return mem.par(); }
+		
 		
 		void alloc() {
 			// mse <- M <- N
-			alloc(xs, mem.vs, {N,H0});
-			alloc(pattern, mem.vs, {N,H1});
-			output.init(mem, xs, H1);
-			mse.init(mem, output.ys, pattern);
+			mem.assign_value(inn_, {N,H0});
+			mem.assign_value(pat_, {N,H1});
+			out_.init(mem, inn_.out(), H1);
+			mse_.init(mem, out_.out(), pat_.out());
 		}
 		
 		void init(size_t N_, size_t H0_, size_t H1_) 
@@ -552,45 +566,44 @@ namespace naive
 			H1 = H1_;
 		
 			// calc used mem
-			mem.set_unlimited();
-			this->alloc(mem);			
-			size_t np, nv;
-			mem.get_used_memory(np, nv, N);
+			mem.fake_malloc();
+			alloc();
 			
+			auto np = mem.par().v.size();
+			auto nv = mem.val().v.size();
+						
 			// alloc mem
-			mem.malloc(np, nv, BATCH_SIZE);
-			this->alloc(mem);
+			mem.malloc(np, nv, N);
+			alloc();
+
+			mse_.out().d.fill(1);
 		
 			if (1) {
 				print("INFO:  LinearNet\n");
-				print("INFO: batch size: {}\n", net.N);
-				print("INFO: input size: {}\n", net.H0);
-				print("INFO: output size: {}\n", net.H1);
+				print("INFO: batch size: {}\n", N);
+				print("INFO: input size: {}\n", H0);
+				print("INFO: output size: {}\n", H1);
 				print("INFO: number of parameters: {}\n", np);
 				print("INFO: store memory: {} kiB\n", kiB<Float>(np) );
 				print("INFO: operational memory x 1: {} kiB\n", kiB<Float>(np * 2 + nv * 2             ) );
-				print("INFO: operational memory x N: {} kiB\n", kiB<Float>(np * 2 + nv * 2 * BATCH_SIZE) );
+				print("INFO: operational memory x N: {} kiB\n", kiB<Float>(np * 2 + nv * 2 * N) );
 				print("\n");
 			}
 		}
-
 		
-		Array<1> & param() { return mem.ps.s; }	
-		Array<2> & input() { return xs; }		
-		Array<2> & pattern() { return pattern; }		
-		Array<2> const& output() const { return output.ys; }
-		Array<1> const& error() const { return mse.ys; }
 		
+		//Rng<Float> & param() { return mem.ps.s; }	
+		//Rng<Float> & dparam() { return mem.ps.d; }	
 		
 		void prop() {
 			// clear ?
-			output.prop();
-			mse.prop();
+			out_.prop();
+			mse_.prop();
 		}
 		
 		void backprop() {			
-			mse.backprop();
-			output.backprop();			
+			mse_.backprop();
+			out_.backprop();					
 		}
 		
 		
@@ -598,7 +611,7 @@ namespace naive
 	};
 	
 	
-
+	
 	template <class T>
 	void randomize(T & x, Random & rand, Float a, Float b) 
 	{
@@ -608,41 +621,6 @@ namespace naive
 		}	
 	}
 
-	
-	template <class T>
-	void measure_net(T & net) {
-		
-		
-	
-	}
-	
-	
-	void net_run() {
-	
-		
-		
-		/*
-		prop();
-		d(mse.ys,0) = 1;
-		backprop();			
-		*/
-	}
-	
-	void net_learn() {
-	
-	}
-	
-	void net_init() {
-	
-	}
-	
-	
-	struct Env
-	{
-		ext::Random rand;
-		
-	};
-	
 	
 	
 	

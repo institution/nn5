@@ -179,6 +179,7 @@ fc layer N->M opers
 
 int main(int argc, char * argv[])
 {
+
 	chdir("/home/sakar/workspace/nn5-go");
 	
 

@@ -8,8 +8,9 @@ namespace naive {
 		// dparams[np]
 		// values[nv]
 		// dvalues[nv]
-	
-		ptr =  new Float[np*2 + nv*2*N];
+		
+		size_ = np*2 + nv*2*N;
+		ptr =  new Float[size_];
 	
 		Float * p = ptr;
 		Float * q = p + np;
@@ -44,14 +45,14 @@ namespace naive {
 		
 		Float y = 0;
 		For(i, N) {
-			auto x = xs0.v(i, h) - xs1.v(i, h);		
+			auto x = xs0.v(i) - xs1.v(i);		
 			y += (1.0f/N) * x * x;
 		}
-		ys.v(0) = y;
+		ys.v(0u) = y;
 			
 	}
 	void Mse::backprop() {
-		auto dy = ys.d(0);		
+		auto dy = ys.d(0u);		
 		assert(dy == 1);   // usually :)
 		For (n, N) {
 			auto x = xs0.v(n) - xs1.v(n);

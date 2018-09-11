@@ -13,6 +13,10 @@ namespace ext {
 			std::uniform_real_distribution<float> d{a, b};
 			return d(e);
 		}
+
+		void seed(unsigned s) {
+			e.seed(s);
+		}
 	};
 	
 	extern std::default_random_engine e;

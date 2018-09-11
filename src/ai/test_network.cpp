@@ -4,48 +4,59 @@
 #include "naive-nn.hpp"
 
 // small value to disturb parameters
-Float const EPS = 0.000001;
+Float const EPS = 0.001;
+Float const EQ_EPS = 0.1;
 
 using namespace ext;
 
 template <class Net>
-Float stochastic_dparam(Net & nn, Float & para, Float & dpara) 
+void stochastic_dparam(Net & nn, Float & para, Float & dpara) 
 {
 	// nn -- network, must be ready to run
 	// return -- err(para + eps)  - err(para - eps) / 2eps
 		
 	auto orig_para = para;
+
+	Float e0 = 0;
+	Float e1 = 0;
 	
 	para = orig_para - EPS;
 	nn.prop();
-	auto e0 = nn.err().v[0];
+	For (i, nn.out().size()) {
+		e0 += nn.out().v[i];
+	}
 			
 	para = orig_para + EPS;
 	nn.prop();
-	auto e1 = nn.err().v[0];
+	For (i, nn.out().size()) {
+		e1 += nn.out().v[i];
+	}
+	
 	para = orig_para;
-		
-	return (e1 - e0) / (2.0 * EPS);
+
+	dpara = (e1 - e0) / (2.0 * EPS);
 }
 
-template <class Array, class Net>
-void stochastic_grad(Array & grad, Net & net) 
+template <class Net>
+void stochastic_grad(Net & net) 
 {
 	auto & param = net.par().v;
 	auto & dparam = net.par().d;
 	
-	assert(grad.size() == dparam.size());
-	
-	For (i, param.size()) {
-		grad[i] = stochastic_dparam(net, param[i], dparam[i]);
+	For (i, param.size()) {		
+		stochastic_dparam(net, param[i], dparam[i]);
 	}
 }
 
+
+
 bool approx_eq(float a, float b) {
 	auto x = (a - b);
-	return x*x < EPS*EPS;
+	return x*x < EQ_EPS*EQ_EPS;
 	//CHECK(sg == Approx(ag).epsilon(tolerance));
 }
+
+
 
 TEST_CASE("linear_layer_gradient", "") 
 {
@@ -54,11 +65,11 @@ TEST_CASE("linear_layer_gradient", "")
 	// 3 calc gradient by disturbing input
 	// 4 compare gradients
 	
-	Random rand;	
+	Random rand;
+	rand.seed(2817349);
 	
-	naive::LinearNet net;	
-	net.init(1, 4, 2);	// batch, input, output
-
+	naive::LincNet net;
+	net.init(1, 2, 1);	// batch, input, output
 	net.clear();
 	
 	auto & input = net.inn().v;
@@ -67,17 +78,29 @@ TEST_CASE("linear_layer_gradient", "")
 
 	randomize(input, rand);
 	randomize(param, rand);
-		
+
+	print("INFO: input = {}\n", input);
+	print("INFO: param = {}\n", param);
+	print("INFO: dparam = {}\n", dparam);
+
 	ext::darray1<Float, size_t> sgrad(param.size());
-	stochastic_grad(sgrad, net);
+
+	//stochastic_grad(net);
+	stochastic_grad2(net);
+	For(i, sgrad.size()) {
+		sgrad[i] = dparam[i];		
+	}
 		
 	net.prop();
 	net.backprop();
-	
+		
+	For(i, dparam.size()) {
+		print("INFO: {} =? {}\n", sgrad[i], dparam(i));
+	}
+
 	For(i, dparam.size()) {
 		REQUIRE(approx_eq(sgrad[i], dparam(i)));		
 	}
-	
 }
 
 

@@ -177,6 +177,16 @@ namespace naive
 		Float & operator()(Dim<N> const& pos) { return rng[get_pos1(dim, pos)]; }
 		Float const& operator()(Dim<N> const& pos) const { return rng[get_pos1(dim, pos)]; }
 	};
+
+
+	template <class O, size_t N>
+	void print1(O & o, Mat<N> const& m) {
+		For(i, m.size()) {
+			ext::print1(o, m[i]);
+			ext::print1(o, ext::Char(' '));
+		}
+	}
+
 	
 	/// N-dim memory view of dual mem areas
 	template <size_t N>
@@ -220,24 +230,33 @@ namespace naive
 	}
 	
 	
+
+
 	
-	struct DualBuf
+	template <class T>
+	void randomize(T & x, Random & rand, Float a, Float b) 
 	{
-		Buf<Float> a;
-		Buf<Float> d;		
-	};
+		For (i, x.size())
+		{
+			x[i] = rand.uniform_f(a, b);
+		}	
+	}
+
+	template <class T>
+	void fill(T & x, Float y) 
+	{
+		For (i, x.size())
+		{
+			x[i] = y;
+		}	
+	}
+		
 	
-	/*
-	struct MemBuf: Buf
-	{
-		void reserve()
-		Mem()
-		~MemBuf()
-	};*/
 	
 	struct Mem
 	{		
 		Float * ptr{nullptr};
+		size_t size_{0};
 		
 		DualMat<1> free_param;
 		DualMat<1> free_value;		
@@ -249,6 +268,16 @@ namespace naive
 		~Mem() {
 			print("INFO: releasing memory\n");
 			delete [] ptr;
+		}
+
+		size_t size() const {
+			return size_;
+		}
+
+		void clear() {
+			For(i, size()) {
+				ptr[i] = 0;
+			}
 		}
 	
 		DualMat<1> & par() { return used_param; }
@@ -354,7 +383,7 @@ namespace naive
 	
 	
 	
-			
+
 	
 
 	
@@ -410,14 +439,16 @@ namespace naive
 		// N -> M
 	
 		size_t N, H0, H1;
-		
+
+	private:
 		DualMat<2> xs; // N,H0
 		DualMat<2> ps; // H1,H0
 		DualMat<2> ys; // N,H1
-				
+
+	public:	
 		DualMat<2> & inn() { return xs; }		
 		DualMat<2> & par() { return ps; }		
-		DualMat<2> const& out() const { return ys; }
+		DualMat<2> & out() { return ys; }
 					
 				
 		void prop();
@@ -499,7 +530,7 @@ namespace naive
 			xs0 = xs0_;
 			xs1 = xs1_;
 			N = xs0_.dim(0);
-			mem.assign_value(ys, {1});
+			mem.assign_value(ys, {1u});
 		}
 		
 		void prop();
@@ -527,36 +558,33 @@ namespace naive
 		
 	};
 	
-	
-	struct LinearNet
+
+	struct LincNet
 	{
 		// H0 -> H1
+
+		Mem mem;
+		
 		size_t N, H0, H1;
 		
 		DualMat<2> inn_;   // H0
-		DualMat<2> pat_; // H1
 		Linc out_; // H1
-		Mse mse_; // 1
-		
-		// also manage your own memory	
-		Mem mem;
-
-		
-		
+				
 		DualMat<2> & inn() { return inn_; }		
-		DualMat<2> & pat() { return pat_; }		
-		DualMat<2> const& out() const { return out_.out(); }
-		DualMat<1> const& mse() const { return mse_.out(); }
-		DualMat<1> const& err() const { return mse_.out(); }
+		DualMat<2> & out() { return out_.out(); }
 		DualMat<1> & par() { return mem.par(); }
+
+
+		void clear()
+		{
+			mem.clear();
+			fill(out().d, 1);
+		}
 		
-		
-		void alloc() {
-			// mse <- M <- N
-			mem.assign_value(inn_, {N,H0});
-			mem.assign_value(pat_, {N,H1});
-			out_.init(mem, inn_.out(), H1);
-			mse_.init(mem, out_.out(), pat_.out());
+		void alloc()
+		{
+			mem.assign_value(inn(), {N,H0});			
+			out_.init(mem, inn(), H1);
 		}
 		
 		void init(size_t N_, size_t H0_, size_t H1_) 
@@ -576,10 +604,10 @@ namespace naive
 			mem.malloc(np, nv, N);
 			alloc();
 
-			mse_.out().d.fill(1);
+			
 		
 			if (1) {
-				print("INFO:  LinearNet\n");
+				print("INFO:  LincNet\n");
 				print("INFO: batch size: {}\n", N);
 				print("INFO: input size: {}\n", H0);
 				print("INFO: output size: {}\n", H1);
@@ -591,18 +619,12 @@ namespace naive
 			}
 		}
 		
-		
-		//Rng<Float> & param() { return mem.ps.s; }	
-		//Rng<Float> & dparam() { return mem.ps.d; }	
-		
 		void prop() {
 			// clear ?
-			out_.prop();
-			mse_.prop();
+			out_.prop();			
 		}
 		
-		void backprop() {			
-			mse_.backprop();
+		void backprop() {
 			out_.backprop();					
 		}
 		
@@ -611,16 +633,6 @@ namespace naive
 	};
 	
 	
-	
-	template <class T>
-	void randomize(T & x, Random & rand, Float a, Float b) 
-	{
-		For (i, x.size())
-		{
-			x[i] = rand.uniform_f(a, b);
-		}	
-	}
-
 	
 	
 	

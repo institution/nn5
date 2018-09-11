@@ -205,7 +205,7 @@ int main(int argc, char * argv[])
 
 	// 2. Init model
 	Random rand;	
-	LinearNet net;
+	LincNet net;
 	net.init(BATCH_SIZE, 81*4, 81);	
 	randomize(net.par().v, rand);
 

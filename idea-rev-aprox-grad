@@ -1,0 +1,20 @@
+
+
+px -> y
+
+y - eps -> p x - eps
+y - eps -> (p - eps/x) x
+
+y - eps -> p0x0 + p1x1 - eps
+we can now split eps with p0 and p1 somehow - like change only one param - the one that was changed last time - or if 0 on this param than choose randomly
+
+p x - eps = (p + dp) x
+
+-eps = dp x
+dp = -eps/x
+
+
+
+y = 1/(1+exp(-(x-dx)))
+
+-1
